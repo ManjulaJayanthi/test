@@ -1,90 +1,43 @@
-use std::{fmt, io::Error as IoError, task::Poll};
 
-use actix_web::{
-    body::{BodySize, BoxBody, MessageBody},
-    http::StatusCode,
-    web::Bytes,
-    Error as ActixWebError, HttpResponse, ResponseError,
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone,PartialEq)]
+pub struct UserinfoFileResponse {
+    pub id: String,
+    pub name: String,
+}
+
+
+use std::{
+    env,
+    fs::{self, File},
+    path::Path,
 };
-use serde_json::Error as SerdeError;
 
-use super::UserinfoFileResponse;
+use crate::user::{UserInfoError, UserinfoFileResponse};
 
-#[derive(Debug)]
-pub enum UserInfoError {
-    ActixWebErr(ActixWebError),
-    SerdeErr(SerdeError),
-    IoErr(IoError),
-    FileNotFound
-}
+use super::user_response::GetUserinfoFileResult;
 
-type UserinfoResult<T> = Result<T, UserInfoError>;
+pub fn fetch_userinfo_from_file(id: String) -> GetUserinfoFileResult {
+    let mut n_path = Path::new(".").join("src");
+    n_path.push(env::var("MOCK_DATA_FILE").expect("MOCK_DATA_FILE missing"));
+    dbg!(&n_path);
+    match File::open(n_path.clone()) {
+        Err(_why) => Err(UserInfoError::FileNotFound),
+        Ok(file) => {
+            println!(">>> {:?}", &file);
+            let data_str = fs::read_to_string(n_path)?; //.expect("Unable to read file MOCK_DATA_FILE");
 
-pub type GetUserinfoResponse = UserinfoResult<HttpResponse>;
+            let data_vec: Vec<UserinfoFileResponse> = serde_json::from_str(&data_str)?;
+            //.expect("Unable to parse the MOCK_DATA_FILE content");
 
-pub type GetUserinfoFileResult = UserinfoResult<UserinfoFileResponse>;
-pub type GetUserinfoFileResponse = UserinfoResult<HttpResponse<BoxBody>>;
+            println!("{:?}", data_vec);
 
-impl fmt::Display for UserInfoError {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
-    }
-}
-
-impl From<ActixWebError> for UserInfoError {
-    fn from(value: ActixWebError) -> Self {
-        UserInfoError::ActixWebErr(value)
-    }
-}
-
-impl From<SerdeError> for UserInfoError {
-    fn from(value: SerdeError) -> Self {
-        UserInfoError::SerdeErr(value)
-    }
-}
-
-impl From<IoError> for UserInfoError {
-    fn from(value: IoError) -> Self {
-        UserInfoError::IoErr(value)
-    }
-}
-
-impl ResponseError for UserInfoError {
-    fn status_code(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
-    }
-
-    fn error_response(&self) -> HttpResponse<BoxBody> {
-        match self {
-            UserInfoError::ActixWebErr(_error) => HttpResponse::NotFound()
-                .content_type("application/json; charset=utf-8")
-                .json({}),
-            UserInfoError::FileNotFound => HttpResponse::InternalServerError()
-                .content_type("application/json; charset=utf-8")
-                .json({}),
-            UserInfoError::SerdeErr(_error) => HttpResponse::InternalServerError()
-                .content_type("application/json; charset=utf-8")
-                .json({}),
-            UserInfoError::IoErr(_error) => HttpResponse::InternalServerError()
-                .content_type("application/json; charset=utf-8")
-                .json({}),
+            let data_option = data_vec.iter().find(|c| c.id == id).cloned();
+            match data_option {
+                Some(data) => Ok(data),
+                None => Err(UserInfoError::FileNotFound),
+            }
         }
-    }
-}
-
-impl MessageBody for UserinfoFileResponse {
-    type Error = String;
-
-    fn size(&self) -> actix_web::body::BodySize {
-        BodySize::Sized((self.id.len() + self.name.len()) as u64)
-    }
-
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Result<actix_web::web::Bytes, Self::Error>>> {
-        let payload_string = self.id.clone() + &self.name;
-        let payload_bytes = Bytes::from(payload_string);
-        Poll::Ready(Some(Ok(payload_bytes)))
     }
 }
