@@ -1,34 +1,90 @@
-mod user_route;
-pub use user_route::{get_userinfo, get_userinfo_from_file};
+use std::{fmt, io::Error as IoError, task::Poll};
 
-mod user_response;
-pub use user_response::{GetUserinfoResponse, UserInfoError};
-
-mod user_test;
-
-mod user_app;
-
-mod user_model;
-pub use user_model::UserinfoFileResponse;
-
-
-use actix_web::{get, web::Path, HttpResponse};
-
-use crate::user::{
-    user_app::fetch_userinfo_from_file, user_response::GetUserinfoFileResponse, GetUserinfoResponse,
+use actix_web::{
+    body::{BodySize, BoxBody, MessageBody},
+    http::StatusCode,
+    web::Bytes,
+    Error as ActixWebError, HttpResponse, ResponseError,
 };
+use serde_json::Error as SerdeError;
 
-#[get("/userinfo/{id}")]
-pub async fn get_userinfo(_path: Path<String>) -> GetUserinfoResponse {
-    println!("\n get_userinfo");
-    Ok(HttpResponse::Ok().body("get_userinfo"))
+use super::UserinfoFileResponse;
+
+#[derive(Debug)]
+pub enum UserInfoError {
+    ActixWebErr(ActixWebError),
+    SerdeErr(SerdeError),
+    IoErr(IoError),
+    FileNotFound
 }
 
-#[get("/userinfo/file/{id}")]
-pub async fn get_userinfo_from_file(path: Path<String>) -> GetUserinfoFileResponse {
-    println!("\n get_userinfo_1");
+type UserinfoResult<T> = Result<T, UserInfoError>;
 
-    let result = fetch_userinfo_from_file(path.to_string())?;
-    println!("\n result : {:?}", &result);
-    Ok(HttpResponse::Ok().json(result))
+pub type GetUserinfoResponse = UserinfoResult<HttpResponse>;
+
+pub type GetUserinfoFileResult = UserinfoResult<UserinfoFileResponse>;
+pub type GetUserinfoFileResponse = UserinfoResult<HttpResponse<BoxBody>>;
+
+impl fmt::Display for UserInfoError {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
+impl From<ActixWebError> for UserInfoError {
+    fn from(value: ActixWebError) -> Self {
+        UserInfoError::ActixWebErr(value)
+    }
+}
+
+impl From<SerdeError> for UserInfoError {
+    fn from(value: SerdeError) -> Self {
+        UserInfoError::SerdeErr(value)
+    }
+}
+
+impl From<IoError> for UserInfoError {
+    fn from(value: IoError) -> Self {
+        UserInfoError::IoErr(value)
+    }
+}
+
+impl ResponseError for UserInfoError {
+    fn status_code(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn error_response(&self) -> HttpResponse<BoxBody> {
+        match self {
+            UserInfoError::ActixWebErr(_error) => HttpResponse::NotFound()
+                .content_type("application/json; charset=utf-8")
+                .json({}),
+            UserInfoError::FileNotFound => HttpResponse::InternalServerError()
+                .content_type("application/json; charset=utf-8")
+                .json({}),
+            UserInfoError::SerdeErr(_error) => HttpResponse::InternalServerError()
+                .content_type("application/json; charset=utf-8")
+                .json({}),
+            UserInfoError::IoErr(_error) => HttpResponse::InternalServerError()
+                .content_type("application/json; charset=utf-8")
+                .json({}),
+        }
+    }
+}
+
+impl MessageBody for UserinfoFileResponse {
+    type Error = String;
+
+    fn size(&self) -> actix_web::body::BodySize {
+        BodySize::Sized((self.id.len() + self.name.len()) as u64)
+    }
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<actix_web::web::Bytes, Self::Error>>> {
+        let payload_string = self.id.clone() + &self.name;
+        let payload_bytes = Bytes::from(payload_string);
+        Poll::Ready(Some(Ok(payload_bytes)))
+    }
 }
