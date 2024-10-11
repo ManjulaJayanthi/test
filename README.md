@@ -1,60 +1,34 @@
-pub mod user_route_mock;
+mod user_route;
+pub use user_route::{get_userinfo, get_userinfo_from_file};
 
-#[cfg(test)]
-mod tests {
-    use dotenv::dotenv;
-    use crate::user::{get_userinfo, get_userinfo_from_file};
+mod user_response;
+pub use user_response::{GetUserinfoResponse, UserInfoError};
 
-    use actix_web::{http::header::ContentType, test, App};
+mod user_test;
 
-    #[actix_web::test]
-    async fn mock_get_userinfo() {
-        let app = test::init_service(App::new().service(get_userinfo)).await;
-        let req = test::TestRequest::get()
-            .uri("/userinfo/{id}")
-            .param("id", "INFY5")
-            .insert_header(ContentType::plaintext())
-            .to_request();
+mod user_app;
 
-        println!("\n req : {:?}", req);
-        let resp = test::call_service(&app, req).await;
+mod user_model;
+pub use user_model::UserinfoFileResponse;
 
-        println!("\n resp : {:?}", resp);
-        assert!(resp.status().is_success());
-    }
 
-    #[actix_web::test]
-    async fn mock_userinfo_from_file() {
-        dotenv().ok();
+use actix_web::{get, web::Path, HttpResponse};
 
-        let app = test::init_service(App::new().service(get_userinfo_from_file)).await;
-        let req = test::TestRequest::get()
-            .uri("/userinfo/file/{id}")
-            .param("id", "INFY5")
-            .insert_header(ContentType::json())
-            .to_request();
+use crate::user::{
+    user_app::fetch_userinfo_from_file, user_response::GetUserinfoFileResponse, GetUserinfoResponse,
+};
 
-        println!("\n req : {:?}", req);
-        let resp = test::call_service(&app, req).await;
-
-        println!("\n resp : {:?}", resp);
-        assert!(resp.status().is_success());
-    }
+#[get("/userinfo/{id}")]
+pub async fn get_userinfo(_path: Path<String>) -> GetUserinfoResponse {
+    println!("\n get_userinfo");
+    Ok(HttpResponse::Ok().body("get_userinfo"))
 }
 
+#[get("/userinfo/file/{id}")]
+pub async fn get_userinfo_from_file(path: Path<String>) -> GetUserinfoFileResponse {
+    println!("\n get_userinfo_1");
 
-
-
-[dependencies]
-actix-web = { version = "4.9.0", features = ["cookies", "macros", "compress-gzip", "compress-brotli" ]}
-dotenv = "0.15.0"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
-
-
-MOCK_DATA_FILE=foo.json
-
-[{
-    "id":"INFY5",
-    "name":"Manjula M"
-}]
+    let result = fetch_userinfo_from_file(path.to_string())?;
+    println!("\n result : {:?}", &result);
+    Ok(HttpResponse::Ok().json(result))
+}
