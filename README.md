@@ -1,19 +1,20 @@
-#[cfg(test)]
-mod tests {
-    use dotenv::dotenv;
-    use crate::user::{  user_app::fetch_userinfo_from_file, UserinfoFileResponse};
+use actix_web::{get, web::Path, HttpResponse};
 
+use crate::user::{
+    user_app::fetch_userinfo_from_file, user_response::GetUserinfoFileResponse, GetUserinfoResponse,
+};
 
-    #[actix_web::test]
-    async fn test_get_userinfo() {
-        dotenv().ok();
+#[get("/userinfo/{id}")]
+pub async fn get_userinfo(_path: Path<String>) -> GetUserinfoResponse {
+    println!("\n get_userinfo");
+    Ok(HttpResponse::Ok().body("get_userinfo"))
+}
 
-        let actual = fetch_userinfo_from_file("INFY5".to_string()).unwrap();
-        let expected = UserinfoFileResponse {
-            id : "INFY5".to_string(),
-            name: "Manjula M".to_string()
-        };
+#[get("/userinfo/file/{id}")]
+pub async fn get_userinfo_from_file(path: Path<String>) -> GetUserinfoFileResponse {
+    println!("\n get_userinfo_1");
 
-        assert_eq!(expected,actual);
-    }
+    let result = fetch_userinfo_from_file(path.to_string())?;
+    println!("\n result : {:?}", &result);
+    Ok(HttpResponse::Ok().json(result))
 }
