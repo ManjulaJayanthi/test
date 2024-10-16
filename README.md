@@ -18,3 +18,6 @@ pub async fn get_userinfo_from_file(path: Path<String>) -> GetUserinfoFileRespon
     println!("\n result : {:?}", &result);
     Ok(HttpResponse::Ok().json(result))
 }
+
+
+BYOD is applicable only for Infoscians. Please refer BYOD policy. please go to Infy me--> Webapps-->Search for BYOD policy for any exception with business reasons, following approvals are required: For any exception to subcons, please follow below process. Attached legal recommendation file and subcon need to inform the requirement to Vendor with whom Sub-Con is employed. Approval from Unit Head & Unit HR is Mandatory, on reading the attached Terms. Also Please attach approval from vendor to whom subcon is employed. Max exception is for 3 months
