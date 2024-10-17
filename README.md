@@ -1,23 +1,121 @@
-use actix_web::{get, web::Path, HttpResponse};
+{
+        match self {
+            UserInfoError::ActixWebErr(error) => {
+                println!("\n UserInfoError ActixWebErr : {}", error);
+                HttpResponse::NotFound()
+                    .content_type("application/json; charset=utf-8")
+                    .json(CustomErrorResponse {
+                        code: fetch_code(CustomErrorStr::ActixWebError), // "Err0001".to_string(),
+                        message: "Actix web Error".to_string(),
+                    })
+            }
+            UserInfoError::FileNotFound => {
+                println!("\n UserInfoError FileNotFound");
+                HttpResponse::InternalServerError()
+                    .content_type("application/json; charset=utf-8")
+                    .json(CustomErrorResponse {
+                        code: fetch_code(CustomErrorStr::FileNotFound),
+                        message: "File Not Found".to_string(),
+                    })
+            }
+            UserInfoError::SerdeErr(error) => {
+                println!("\n UserInfoError SerdeErr {}", error);
+                HttpResponse::InternalServerError()
+                    .content_type("application/json; charset=utf-8")
+                    .json(CustomErrorResponse {
+                        code: fetch_code(CustomErrorStr::SerdeError),
+                        message: "Serde Error".to_string(),
+                    })
+            }
+            UserInfoError::IoErr(error) => {
+                println!("\n UserInfoError IoErr {}", error);
+                HttpResponse::InternalServerError()
+                    .content_type("application/json; charset=utf-8")
+                    .json(CustomErrorResponse {
+                        code: fetch_code(CustomErrorStr::IoError),
+                        message: "File IO Error".to_string(),
+                    })
+            }
+        }
+    }
 
-use crate::user::{
-    user_app::fetch_userinfo_from_file, user_response::GetUserinfoFileResponse, GetUserinfoResponse,
-};
 
-#[get("/userinfo/{id}")]
-pub async fn get_userinfo(_path: Path<String>) -> GetUserinfoResponse {
-    println!("\n get_userinfo");
-    Ok(HttpResponse::Ok().body("get_userinfo"))
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CustomErrorResponse {
+    pub code: CustomErrorCode,
+    pub message: String,
 }
 
-#[get("/userinfo/file/{id}")]
-pub async fn get_userinfo_from_file(path: Path<String>) -> GetUserinfoFileResponse {
-    println!("\n get_userinfo_1");
-
-    let result = fetch_userinfo_from_file(path.to_string())?;
-    println!("\n result : {:?}", &result);
-    Ok(HttpResponse::Ok().json(result))
+#[derive(Debug, Serialize, Deserialize)]
+pub enum CustomErrorCode {
+    ERR0001,
+    ERR0002,
+    ERR0003,
+    ERR0004,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum CustomErrorStr {
+    ActixWebError,
+    SerdeError,
+    IoError,
+    FileNotFound,
+}
 
-BYOD is applicable only for Infoscians. Please refer BYOD policy. please go to Infy me--> Webapps-->Search for BYOD policy for any exception with business reasons, following approvals are required: For any exception to subcons, please follow below process. Attached legal recommendation file and subcon need to inform the requirement to Vendor with whom Sub-Con is employed. Approval from Unit Head & Unit HR is Mandatory, on reading the attached Terms. Also Please attach approval from vendor to whom subcon is employed. Max exception is for 3 months
+pub fn fetch_code(custom_err_str: CustomErrorStr) -> CustomErrorCode {
+    match custom_err_str {
+        CustomErrorStr::ActixWebError => CustomErrorCode::ERR0001,
+        CustomErrorStr::SerdeError => CustomErrorCode::ERR0002,
+        CustomErrorStr::IoError => CustomErrorCode::ERR0003,
+        CustomErrorStr::FileNotFound => CustomErrorCode::ERR0004,
+    }
+}
+
+fn fetch_error(custom_err_str: CustomErrorStr, message: String) -> CustomErrorResponse {
+    match custom_err_str {
+        CustomErrorStr::ActixWebError => CustomErrorResponse {
+            code: fetch_code(CustomErrorStr::ActixWebError), // "Err0001".to_string(),
+            message: message,
+        },
+        CustomErrorStr::SerdeError => CustomErrorResponse {
+            code: fetch_code(CustomErrorStr::FileNotFound),
+            message: message,
+        },
+        CustomErrorStr::IoError => CustomErrorResponse {
+            code: fetch_code(CustomErrorStr::SerdeError),
+            message: message,
+        },
+        CustomErrorStr::FileNotFound => CustomErrorResponse {
+            code: fetch_code(CustomErrorStr::IoError),
+            message: message,
+        },
+    }
+}
+
+// impl CustomErrorResponse {
+//     fn fetch_error(code: CustomErrorCode) -> Self {
+//         match code {
+//             CustomErrorCode::ERR0001 => Self {
+//                 code :CustomErrorCode::ERR0001,
+//                 message: "Actix web Error".to_string()
+//             },
+//             CustomErrorCode::ERR0002 => Self {
+//                 code: CustomErrorCode::ERR0001,
+//                 message: "".to_string(),
+//             },
+//             CustomErrorCode::ERR0003 => Self {
+//                 code :CustomErrorCode::ERR0001,
+//                 message: "".to_string(),
+//             },
+//             CustomErrorCode::ERR0004 => Self {
+//                 code :CustomErrorCode::ERR0001,
+//                 message: "".to_string(),
+//             }
+//         }
+//     }
+// }
+
+
+    
